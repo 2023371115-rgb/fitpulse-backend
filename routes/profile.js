@@ -4,10 +4,25 @@ const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
  
 const router = express.Router();
+
+let avatarColumnReady = false;
+
+async function ensureAvatarColumn() {
+  if (avatarColumnReady) return;
+  try {
+    await query('ALTER TABLE users ADD COLUMN avatar MEDIUMTEXT NULL');
+  } catch (err) {
+    if (!err || err.code !== 'ER_DUP_FIELDNAME') {
+      throw err;
+    }
+  }
+  avatarColumnReady = true;
+}
  
 // GET /api/profile
 router.get('/', authMiddleware, async (req, res) => {
   try {
+    await ensureAvatarColumn();
     const result = await query(
       'SELECT id, email, name, avatar, created_at FROM users WHERE id = ?',
       [req.user.id]
@@ -26,6 +41,7 @@ router.put('/', authMiddleware, async (req, res) => {
   const { name, currentPassword, newPassword, avatar } = req.body;
  
   try {
+    await ensureAvatarColumn();
     const result = await query('SELECT * FROM users WHERE id = ?', [req.user.id]);
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
