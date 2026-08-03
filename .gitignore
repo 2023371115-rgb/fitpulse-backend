@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+node_modules/
+uploads/
+*.log
+hs_err_pid*.log
+replay_pid*.log
+*.jks
+*.keystore

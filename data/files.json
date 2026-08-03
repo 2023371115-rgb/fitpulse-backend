@@ -1,0 +1,67 @@
+[
+  {
+    "id": "8722e31a-c960-4bf7-b089-a4f8e198b625",
+    "created_at": "2026-06-02T03:08:48.738Z",
+    "metadata": {},
+    "original_name": "Captura de pantalla 2026-04-26 180440.png",
+    "filename": "08694759-5ac0-4a45-84a6-13a522fb4b3c.png",
+    "mime_type": "image/png",
+    "size": 588252,
+    "storage_path": "/uploads/default/08694759-5ac0-4a45-84a6-13a522fb4b3c.png",
+    "workspace_id": "default",
+    "owner_id": null,
+    "thumbnail_url": "/uploads/default/thumbs/08694759-5ac0-4a45-84a6-13a522fb4b3c-thumb.jpg"
+  },
+  {
+    "id": "203b3e44-f41f-4b7d-acc8-3a502eb63cf8",
+    "created_at": "2026-06-02T02:41:55.888Z",
+    "metadata": {},
+    "original_name": "ChatGPT Image 2 may 2026, 05_02_43 p.m..png",
+    "filename": "f30bb4ce-1181-43f5-8036-390320d47e48.png",
+    "mime_type": "image/png",
+    "size": 1663209,
+    "storage_path": "/uploads/default/f30bb4ce-1181-43f5-8036-390320d47e48.png",
+    "workspace_id": "default",
+    "owner_id": null,
+    "thumbnail_url": "/uploads/default/thumbs/f30bb4ce-1181-43f5-8036-390320d47e48-thumb.jpg"
+  },
+  {
+    "id": "4aed0329-9a7c-4b98-a5bf-1c79852421d0",
+    "created_at": "2026-06-02T01:48:19.514Z",
+    "metadata": {},
+    "original_name": "Gemini_Generated_Image_z1jdn7z1jdn7z1jd.png",
+    "filename": "8e348d75-8ff7-4ab6-a417-6c7f26410bff.png",
+    "mime_type": "image/png",
+    "size": 2088694,
+    "storage_path": "/uploads/default/8e348d75-8ff7-4ab6-a417-6c7f26410bff.png",
+    "workspace_id": "default",
+    "owner_id": null,
+    "thumbnail_url": "/uploads/default/thumbs/8e348d75-8ff7-4ab6-a417-6c7f26410bff-thumb.jpg"
+  },
+  {
+    "id": "ba3a6130-8548-459c-8fa0-e43f36a089de",
+    "created_at": "2026-06-02T01:47:33.874Z",
+    "metadata": {},
+    "original_name": "1.png",
+    "filename": "01778834-537b-43bf-8997-14e4399e8565.png",
+    "mime_type": "image/png",
+    "size": 7123153,
+    "storage_path": "/uploads/default/01778834-537b-43bf-8997-14e4399e8565.png",
+    "workspace_id": "default",
+    "owner_id": null,
+    "thumbnail_url": "/uploads/default/thumbs/01778834-537b-43bf-8997-14e4399e8565-thumb.jpg"
+  },
+  {
+    "id": "8894cee7-b37c-49ab-bb08-0ec67e54d1ec",
+    "created_at": "2026-06-02T01:45:53.770Z",
+    "metadata": {},
+    "original_name": "test-upload.png",
+    "filename": "ffbec813-afbd-49a5-a4bd-f0924cb7f7be.png",
+    "mime_type": "image/png",
+    "size": 136,
+    "storage_path": "/uploads/default/ffbec813-afbd-49a5-a4bd-f0924cb7f7be.png",
+    "workspace_id": "default",
+    "owner_id": null,
+    "thumbnail_url": "/uploads/default/thumbs/ffbec813-afbd-49a5-a4bd-f0924cb7f7be-thumb.jpg"
+  }
+]
