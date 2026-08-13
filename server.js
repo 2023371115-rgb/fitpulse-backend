@@ -13,6 +13,7 @@ const authRouter = require('./routes/auth');
 const searchRouter = require('./routes/search');
 const devicesRouter = require('./routes/devices');
 const tvRouter = require('./routes/tv').router;
+const adminRouter = require('./routes/admin');
 
 const goalsRouter = require('./routes/goals');
 const sessionsRouter = require('./routes/sessions');
@@ -107,6 +108,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/devices', devicesRouter);
 app.use('/api/tv', tvRouter);
 app.use('/api/profile', profileRouter);
+app.use('/api/admin', adminRouter);
 app.use('/api/goals', goalsRouter);
 app.use('/api/sessions', sessionsRouter);
 

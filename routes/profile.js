@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
+const { ensureAdminColumns } = require('../services/userSchema');
  
 const router = express.Router();
 
@@ -23,8 +24,9 @@ async function ensureAvatarColumn() {
 router.get('/', authMiddleware, async (req, res) => {
   try {
     await ensureAvatarColumn();
+    await ensureAdminColumns();
     const result = await query(
-      'SELECT id, email, name, avatar, created_at FROM users WHERE id = ?',
+      'SELECT id, email, name, avatar, active, created_at FROM users WHERE id = ?',
       [req.user.id]
     );
     const user = result.rows[0];
@@ -42,6 +44,7 @@ router.put('/', authMiddleware, async (req, res) => {
  
   try {
     await ensureAvatarColumn();
+    await ensureAdminColumns();
     const result = await query('SELECT * FROM users WHERE id = ?', [req.user.id]);
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -84,7 +87,7 @@ router.put('/', authMiddleware, async (req, res) => {
     await query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, values);
  
     const updated = await query(
-      'SELECT id, email, name, avatar, created_at FROM users WHERE id = ?',
+      'SELECT id, email, name, avatar, active, created_at FROM users WHERE id = ?',
       [req.user.id]
     );
  

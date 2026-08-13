@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../db');
+const { ensureAdminColumns } = require('../services/userSchema');
 
 const router = express.Router();
 
@@ -11,6 +12,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
+    await ensureAdminColumns();
     const { email, password, name } = req.body;
     const emailNormalized = String(email || '').trim().toLowerCase();
     const passwordText = String(password || '');
@@ -38,14 +40,16 @@ router.post('/register', async (req, res) => {
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   try {
+    await ensureAdminColumns();
     const { email, password } = req.body;
     const emailNormalized = String(email || '').trim().toLowerCase();
     const passwordText = String(password || '');
     if(!emailNormalized || !passwordText) return res.status(400).json({ error: 'Email y contrasena requeridos.' });
 
-    const r = await query('SELECT id, email, password_hash, name FROM users WHERE email = ?', [emailNormalized]);
+    const r = await query('SELECT id, email, password_hash, name, active FROM users WHERE email = ?', [emailNormalized]);
     if(r.rowCount === 0) return res.status(401).json({ error: 'Credenciales incorrectas.' });
     const user = r.rows[0];
+    if (Number(user.active) === 0) return res.status(403).json({ error: 'Cuenta desactivada por administracion.' });
     const ok = await bcrypt.compare(passwordText, user.password_hash);
     if(!ok) return res.status(401).json({ error: 'Credenciales incorrectas.' });
 
