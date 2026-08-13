@@ -61,6 +61,12 @@ Health check:
 http://localhost:3000/api/health
 ```
 
+Version estable:
+
+```text
+http://localhost:3000/api/version
+```
+
 ## Busqueda externa
 
 DuckDuckGo funciona sin credenciales:
@@ -73,3 +79,9 @@ EXTERNAL_SEARCH_PROVIDER=duckduckgo
 
 Este repo cubre backend, base de datos, autenticacion, APIs para dashboard,
 buscador, dispositivos inteligentes y sincronizacion con Smart TV/wearable.
+
+Documentacion de cierre:
+
+- `docs/stable-version.md`
+- `docs/audit-tests.md`
+- `docs/windows-user-admin.md`

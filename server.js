@@ -21,6 +21,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const appVersion = {
+  name: 'FitPulse Health Lab',
+  version: '1.0.0',
+  stage: 'stable',
+  releasedAt: '2026-08-13',
+  services: {
+    frontend: 'Vercel',
+    backend: 'Render',
+    database: 'Aiven MySQL',
+    wearable: 'Flutter Wear OS'
+  }
+};
+
 // Rate limiting — protege login y subida de archivos
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,  // 15 minutos
@@ -42,6 +55,8 @@ app.use('/api/workspaces/:workspaceId/files', uploadLimiter);
 // Design tokens — compartidos con Angular (CSS variables) y Flutter
 const tokens = require('./data/tokens.json');
 app.get('/api/tokens', (_req, res) => res.json(tokens));
+app.get('/api/version', (_req, res) => res.json(appVersion));
+app.get('/api/health', (_req, res) => res.json({ ok: true, ...appVersion }));
 
 // Servir archivos estáticos (previews/downloads)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
