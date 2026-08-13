@@ -79,6 +79,49 @@ router.delete('/:deviceId', verifyToken, async (req, res) => {
 
 // ─── METRICS ──────────────────────────────────────────────────────────────────
 
+// POST /api/devices/:deviceId/metrics/user — app Wear OS autenticada envia demo/sensores
+router.post('/:deviceId/metrics/user', verifyToken, async (req, res) => {
+  try {
+    const deviceResult = await query(
+      'SELECT id, owner_id FROM devices WHERE id = ? AND owner_id = ?',
+      [req.params.deviceId, req.user.id]
+    );
+    if (deviceResult.rowCount === 0) {
+      return res.status(404).json({ error: 'Dispositivo no encontrado' });
+    }
+
+    const { heart_rate, steps, spo2, temperature, extra } = req.body;
+    await query(
+      `INSERT INTO metrics(device_id, heart_rate, steps, spo2, temperature, extra)
+       VALUES(?, ?, ?, ?, ?, ?)`,
+      [
+        req.params.deviceId,
+        heart_rate ?? null,
+        steps ?? null,
+        spo2 ?? null,
+        temperature ?? null,
+        extra ? JSON.stringify(extra) : null
+      ]
+    );
+
+    await query(
+      'UPDATE devices SET status = ? WHERE id = ? AND owner_id = ?',
+      ['linked', req.params.deviceId, req.user.id]
+    );
+
+    setState(req.user.id, {
+      selectedCardId: 'heart',
+      selectedIndex: 1,
+      lastAction: 'Wear OS envio metricas demo'
+    });
+
+    return res.status(201).json({ ok: true });
+  } catch (err) {
+    console.error('metrics user post error', err);
+    return res.status(500).json({ error: 'Error al guardar metricas desde Wear OS' });
+  }
+});
+
 // POST /api/devices/:deviceId/metrics  — el dispositivo envía métricas usando su token
 router.post('/:deviceId/metrics', async (req, res) => {
   try {
