@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const { query } = require('../db');
 const verifyToken = require('../middleware/auth');
 const { setState } = require('../services/tvSync');
+const { ensurePairingColumns } = require('../services/deviceSchema');
 
 const router = express.Router();
 
@@ -12,6 +13,7 @@ const router = express.Router();
 // GET /api/devices  — lista dispositivos del usuario autenticado
 router.get('/', verifyToken, async (req, res) => {
   try {
+    await ensurePairingColumns();
     const result = await query(
       'SELECT id, name, type, status, created_at FROM devices WHERE owner_id = ? ORDER BY created_at DESC',
       [req.user.id]
@@ -26,6 +28,7 @@ router.get('/', verifyToken, async (req, res) => {
 // POST /api/devices  — registra un nuevo dispositivo y devuelve su token
 router.post('/', verifyToken, async (req, res) => {
   try {
+    await ensurePairingColumns();
     const { name, type } = req.body;
     if (!name) return res.status(400).json({ error: 'name requerido' });
 
@@ -48,6 +51,7 @@ router.post('/', verifyToken, async (req, res) => {
 // PATCH /api/devices/:deviceId/status  — cambia estado (idle/linked/offline)
 router.patch('/:deviceId/status', verifyToken, async (req, res) => {
   try {
+    await ensurePairingColumns();
     const { status } = req.body;
     if (!['idle', 'linked', 'offline'].includes(status)) {
       return res.status(400).json({ error: 'status inválido' });
@@ -78,6 +82,72 @@ router.delete('/:deviceId', verifyToken, async (req, res) => {
 });
 
 // ─── METRICS ──────────────────────────────────────────────────────────────────
+
+// POST /api/devices/:deviceId/pairing-code — genera codigo temporal para reloj
+router.post('/:deviceId/pairing-code', verifyToken, async (req, res) => {
+  try {
+    await ensurePairingColumns();
+    const devResult = await query(
+      'SELECT id, type FROM devices WHERE id = ? AND owner_id = ?',
+      [req.params.deviceId, req.user.id]
+    );
+    if (devResult.rowCount === 0) return res.status(404).json({ error: 'Dispositivo no encontrado' });
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await query(
+      'UPDATE devices SET pair_code = ?, pair_code_expires_at = ?, status = ? WHERE id = ? AND owner_id = ?',
+      [code, expiresAt, 'idle', req.params.deviceId, req.user.id]
+    );
+
+    return res.json({ code, expiresAt: expiresAt.toISOString() });
+  } catch (err) {
+    console.error('pairing code error', err);
+    return res.status(500).json({ error: 'No se pudo generar el codigo de enlace' });
+  }
+});
+
+// POST /api/devices/pair — el reloj canjea codigo por token propio del dispositivo
+router.post('/pair', async (req, res) => {
+  try {
+    await ensurePairingColumns();
+    const code = String(req.body?.code || '').trim();
+    if (!/^\d{6}$/.test(code)) return res.status(400).json({ error: 'Codigo invalido' });
+
+    const result = await query(
+      `SELECT id, name, type, token, owner_id
+       FROM devices
+       WHERE pair_code = ? AND pair_code_expires_at > NOW()
+       ORDER BY pair_code_expires_at DESC
+       LIMIT 1`,
+      [code]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Codigo vencido o incorrecto' });
+
+    const device = result.rows[0];
+    await query(
+      'UPDATE devices SET pair_code = NULL, pair_code_expires_at = NULL, status = ? WHERE id = ?',
+      ['linked', device.id]
+    );
+
+    setState(device.owner_id, {
+      selectedCardId: 'devices',
+      selectedIndex: 3,
+      lastAction: 'Wear OS enlazado por codigo'
+    });
+
+    return res.json({
+      deviceId: device.id,
+      deviceToken: device.token,
+      name: device.name,
+      type: device.type
+    });
+  } catch (err) {
+    console.error('pair device error', err);
+    return res.status(500).json({ error: 'No se pudo enlazar el reloj' });
+  }
+});
 
 // POST /api/devices/:deviceId/metrics/user — app Wear OS autenticada envia demo/sensores
 router.post('/:deviceId/metrics/user', verifyToken, async (req, res) => {

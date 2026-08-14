@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS devices (
   type ENUM('wearable','smarttv','phone','other') NOT NULL DEFAULT 'other',
   status ENUM('idle','linked','offline') NOT NULL DEFAULT 'idle',
   token CHAR(64) NOT NULL,
+  pair_code VARCHAR(12) NULL,
+  pair_code_expires_at DATETIME NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_devices_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
