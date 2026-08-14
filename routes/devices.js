@@ -56,10 +56,20 @@ router.patch('/:deviceId/status', verifyToken, async (req, res) => {
     if (!['idle', 'linked', 'offline'].includes(status)) {
       return res.status(400).json({ error: 'status inválido' });
     }
-    await query(
-      'UPDATE devices SET status = ? WHERE id = ? AND owner_id = ?',
-      [status, req.params.deviceId, req.user.id]
-    );
+    if (status === 'idle' || status === 'offline') {
+      const nextToken = crypto.randomBytes(32).toString('hex');
+      await query(
+        `UPDATE devices
+         SET status = ?, token = ?, pair_code = NULL, pair_code_expires_at = NULL
+         WHERE id = ? AND owner_id = ?`,
+        [status, nextToken, req.params.deviceId, req.user.id]
+      );
+    } else {
+      await query(
+        'UPDATE devices SET status = ? WHERE id = ? AND owner_id = ?',
+        [status, req.params.deviceId, req.user.id]
+      );
+    }
     return res.json({ ok: true });
   } catch (err) {
     console.error('device status error', err);
@@ -199,11 +209,14 @@ router.post('/:deviceId/metrics', async (req, res) => {
     if (!bearerToken) return res.status(401).json({ error: 'Token de dispositivo requerido' });
 
     const deviceResult = await query(
-      'SELECT id, owner_id FROM devices WHERE id = ? AND token = ?',
+      'SELECT id, owner_id, status FROM devices WHERE id = ? AND token = ?',
       [req.params.deviceId, bearerToken]
     );
     if (deviceResult.rowCount === 0) {
       return res.status(401).json({ error: 'Dispositivo no autorizado' });
+    }
+    if (deviceResult.rows[0].status !== 'linked') {
+      return res.status(409).json({ error: 'Dispositivo no enlazado' });
     }
 
     const { heart_rate, steps, spo2, temperature, extra } = req.body;
