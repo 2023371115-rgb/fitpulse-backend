@@ -32,7 +32,7 @@ curl.exe https://fitpulse-backend-r77o.onrender.com/api/health
 
 Resultado esperado:
 
-- `version` debe ser `1.0.0`.
+- `version` debe ser `1.1.0` (Entregable 2: metas con avance, sesiones con distancia, métricas y notificaciones).
 - `stage` debe ser `stable`.
 - `services.database` debe indicar `Aiven MySQL`.
 - `ok` debe ser `true` en `/api/health`.

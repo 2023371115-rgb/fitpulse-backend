@@ -7,7 +7,7 @@
 3. Insecure authentication/authorization: backend valida JWT en rutas de usuario y token de dispositivo en metricas.
 4. Insufficient input/output validation: API usa consultas parametrizadas y valida tipos principales.
 5. Insecure communication: para demo local se usa HTTP; en despliegue debe usarse HTTPS para PWA y SSE.
-6. Inadequate privacy controls: se documentan datos de salud y retencion de 30 dias.
+6. Inadequate privacy controls: se documentan los datos de salud, su retencion (lecturas 30 dias, sesiones 365 dias) y el borrado de cuenta desde la app.
 7. Insufficient binary protections: APK de demo no debe publicarse con secretos embebidos.
 8. Security misconfiguration: se agrega CSP en `index.html` y `.gitignore` bloquea `.env`, `.jks` y `.keystore`.
 9. Insecure data storage: localStorage solo guarda cache de TV con timestamp y se borra despues de 30 dias.
@@ -49,7 +49,8 @@ Derechos ARCO: el usuario puede solicitar acceso, rectificacion, cancelacion u o
 ## Retencion de datos
 
 - Cache local de TV: maximo 30 dias; se elimina automaticamente al iniciar la pantalla TV.
-- Datos de base de datos: `services/retention.js` elimina metricas y sesiones con mas de 30 dias al iniciar el backend y una vez al dia.
+- Datos de base de datos: `services/retention.js` se ejecuta al iniciar el backend y una vez al dia. Elimina las lecturas crudas del wearable (`metrics`) con mas de 30 dias y las sesiones con mas de 365 dias (el historial y las metricas mensuales necesitan mas de 30 dias de sesiones).
+- Cancelacion: `DELETE /api/profile` (con contrasena) borra la cuenta y, en cascada, metas, sesiones, dispositivos, lecturas y notificaciones.
 - Archivos sensibles: `.env`, `.jks`, `.keystore` y logs no deben subirse al repositorio.
 
 ## Checklist PWA

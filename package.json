@@ -1,14 +1,13 @@
 {
-  "name": "sketchbook-backend",
-  "version": "0.1.0",
+  "name": "fitpulse-backend",
+  "version": "1.1.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
     "migrate": "node migrate.js",
-    "build": "npm --prefix frontend run build",
-    "build:frontend": "npm --prefix frontend run build",
-    "start:frontend": "npm --prefix frontend start"
+    "test": "node --test --test-concurrency=1 tests/api.test.js",
+    "seed": "node scripts/seed.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
@@ -32,5 +31,8 @@
       "flutter_devices_app/",
       "*.log"
     ]
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

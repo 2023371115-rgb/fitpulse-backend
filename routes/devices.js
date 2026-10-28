@@ -5,6 +5,35 @@ const { query } = require('../db');
 const verifyToken = require('../middleware/auth');
 const { setState } = require('../services/tvSync');
 const { ensurePairingColumns } = require('../services/deviceSchema');
+const { notify } = require('../services/notify');
+const { optInt } = require('../services/validate');
+
+const LOW_BATTERY = 20;
+
+/** Normaliza una lectura recibida del wearable o de la app. */
+function reading(body) {
+  const b = body || {};
+  return {
+    heart_rate: optInt(b.heart_rate, 'heart_rate', 25, 250),
+    steps: optInt(b.steps, 'steps', 0, 100000),
+    spo2: optInt(b.spo2, 'spo2', 50, 100),
+    temperature: b.temperature === undefined || b.temperature === null ? null : Number(b.temperature),
+    battery: optInt(b.battery, 'battery', 0, 100),
+    extra: b.extra ? JSON.stringify(b.extra) : null,
+  };
+}
+
+async function saveReading(deviceId, r) {
+  await query(
+    `INSERT INTO metrics(device_id, heart_rate, steps, spo2, temperature, extra)
+     VALUES(?, ?, ?, ?, ?, ?)`,
+    [deviceId, r.heart_rate, r.steps, r.spo2, r.temperature, r.extra]
+  );
+  await query(
+    `UPDATE devices SET last_sync_at = UTC_TIMESTAMP(), battery = COALESCE(?, battery) WHERE id = ?`,
+    [r.battery, deviceId]
+  );
+}
 
 const router = express.Router();
 
@@ -15,7 +44,7 @@ router.get('/', verifyToken, async (req, res) => {
   try {
     await ensurePairingColumns();
     const result = await query(
-      'SELECT id, name, type, status, created_at FROM devices WHERE owner_id = ? ORDER BY created_at DESC',
+      'SELECT id, name, type, status, battery, last_sync_at, created_at FROM devices WHERE owner_id = ? ORDER BY created_at DESC',
       [req.user.id]
     );
     return res.json(result.rows);
@@ -170,24 +199,27 @@ router.post('/:deviceId/metrics/user', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'Dispositivo no encontrado' });
     }
 
-    const { heart_rate, steps, spo2, temperature, extra } = req.body;
-    await query(
-      `INSERT INTO metrics(device_id, heart_rate, steps, spo2, temperature, extra)
-       VALUES(?, ?, ?, ?, ?, ?)`,
-      [
-        req.params.deviceId,
-        heart_rate ?? null,
-        steps ?? null,
-        spo2 ?? null,
-        temperature ?? null,
-        extra ? JSON.stringify(extra) : null
-      ]
-    );
+    let r;
+    try {
+      r = reading(req.body);
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+    await saveReading(req.params.deviceId, r);
 
     await query(
       'UPDATE devices SET status = ? WHERE id = ? AND owner_id = ?',
       ['linked', req.params.deviceId, req.user.id]
     );
+
+    const devName = (await query('SELECT name FROM devices WHERE id = ?', [req.params.deviceId])).rows[0]?.name || 'tu dispositivo';
+    if (req.body?.notify !== false) {
+      await notify(req.user.id, 'sync', 'Dispositivo sincronizado',
+        r.steps ? `Se recibieron ${r.steps.toLocaleString('en-US')} pasos nuevos desde ${devName}.` : `${devName} envió nuevas lecturas.`);
+    }
+    if (r.battery !== null && r.battery <= LOW_BATTERY) {
+      await notify(req.user.id, 'battery', 'Batería baja', `${devName} tiene ${r.battery}%. Cárgalo para no perder datos.`);
+    }
 
     setState(req.user.id, {
       selectedCardId: 'heart',
@@ -219,19 +251,13 @@ router.post('/:deviceId/metrics', async (req, res) => {
       return res.status(409).json({ error: 'Dispositivo no enlazado' });
     }
 
-    const { heart_rate, steps, spo2, temperature, extra } = req.body;
-    await query(
-      `INSERT INTO metrics(device_id, heart_rate, steps, spo2, temperature, extra)
-       VALUES(?, ?, ?, ?, ?, ?)`,
-      [
-        req.params.deviceId,
-        heart_rate ?? null,
-        steps ?? null,
-        spo2 ?? null,
-        temperature ?? null,
-        extra ? JSON.stringify(extra) : null
-      ]
-    );
+    let r;
+    try {
+      r = reading(req.body);
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+    await saveReading(req.params.deviceId, r);
 
     setState(deviceResult.rows[0].owner_id, {
       selectedCardId: 'heart',
@@ -260,7 +286,7 @@ router.get('/:deviceId/metrics', verifyToken, async (req, res) => {
 
     const result = await query(
       `SELECT id, heart_rate, steps, spo2, temperature, extra, recorded_at
-       FROM metrics WHERE device_id = ? ORDER BY recorded_at DESC LIMIT ?`,
+       FROM metrics WHERE device_id = ? ORDER BY recorded_at DESC, id DESC LIMIT ?`,
       [req.params.deviceId, limit]
     );
     return res.json(result.rows);
@@ -281,7 +307,7 @@ router.get('/:deviceId/metrics/latest', verifyToken, async (req, res) => {
 
     const result = await query(
       `SELECT id, heart_rate, steps, spo2, temperature, extra, recorded_at
-       FROM metrics WHERE device_id = ? ORDER BY recorded_at DESC LIMIT 1`,
+       FROM metrics WHERE device_id = ? ORDER BY recorded_at DESC, id DESC LIMIT 1`,
       [req.params.deviceId]
     );
     if (result.rowCount === 0) return res.json(null);

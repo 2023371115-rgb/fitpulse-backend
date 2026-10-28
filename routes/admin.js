@@ -5,22 +5,26 @@ const { ensureAdminColumns } = require('../services/userSchema');
 
 const router = express.Router();
 
+/**
+ * Solo usuarios con role = 'admin' pueden usar el panel.
+ * (Antes bastaba con llamarse "superadmin", y cualquiera podía registrarse con ese nombre.)
+ */
 async function requireSuperAdmin(req, res, next) {
   try {
     await ensureAdminColumns();
     const result = await query(
-      'SELECT id, email, name, active FROM users WHERE id = ?',
+      'SELECT id, email, name, role, active FROM users WHERE id = ?',
       [req.user.id]
     );
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
-    if (String(user.name || '').trim().toLowerCase() !== 'superadmin') {
-      return res.status(403).json({ error: 'Solo superadmin puede usar este panel.' });
+    if (user.role !== 'admin' || Number(user.active) === 0) {
+      return res.status(403).json({ error: 'Solo administradores pueden usar este panel.' });
     }
     req.adminUser = user;
     return next();
   } catch (err) {
-    console.error('Admin guard error:', err);
+    console.error('Admin guard error:', err.message);
     return res.status(500).json({ error: 'No se pudo validar el administrador.' });
   }
 }
@@ -31,7 +35,7 @@ router.get('/users', async (_req, res) => {
   try {
     await ensureAdminColumns();
     const result = await query(
-      `SELECT id, email, name, active, created_at
+      `SELECT id, email, name, role, active, created_at
        FROM users
        ORDER BY created_at DESC`
     );
@@ -56,7 +60,7 @@ router.patch('/users/:id', async (req, res) => {
     if (result.rowCount === 0) return res.status(404).json({ error: 'Usuario no encontrado.' });
 
     const updated = await query(
-      'SELECT id, email, name, active, created_at FROM users WHERE id = ?',
+      'SELECT id, email, name, role, active, created_at FROM users WHERE id = ?',
       [userId]
     );
     return res.json({ user: updated.rows[0] });
