@@ -34,7 +34,8 @@ systemctl disable --now fitpulse 2>/dev/null || true
 log "2/8 Memoria swap de 1 GB (compilar Angular en una t3.micro)"
 FREE_MB=$(df -Pm / | awk 'NR==2 {print $4}')
 echo "Espacio libre en disco: ${FREE_MB} MB"
-[ "$FREE_MB" -ge 1800 ] || { echo "Se necesitan al menos 1.8 GB libres. Amplía el volumen EBS de la instancia."; exit 1; }
+NEED_MB=1800; swapon --show | grep -q /swapfile && NEED_MB=1100   # la swap ya ocupa su espacio
+[ "$FREE_MB" -ge "$NEED_MB" ] || { echo "Se necesitan al menos ${NEED_MB} MB libres. Amplía el volumen EBS de la instancia."; exit 1; }
 if ! swapon --show | grep -q /swapfile; then
   fallocate -l 1G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
   grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
@@ -66,6 +67,9 @@ mysql -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLA
 log "5/8 Código desde GitHub (rama $BRANCH)"
 id fitpulse >/dev/null 2>&1 || useradd -r -m -d "$APP" -s /usr/sbin/nologin fitpulse
 mkdir -p "$APP"
+# El código pertenece al usuario "fitpulse" y el script corre como root: Git lo permite solo así.
+git config --global --get-all safe.directory | grep -qx "$APP/backend" || git config --global --add safe.directory "$APP/backend"
+git config --global --get-all safe.directory | grep -qx "$APP/frontend" || git config --global --add safe.directory "$APP/frontend"
 fetch() { # repo rama destino
   if [ -d "$3/.git" ]; then
     git -C "$3" fetch -q --depth 1 origin "$2" && git -C "$3" checkout -q -B "$2" FETCH_HEAD
