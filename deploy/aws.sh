@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# FitPulse · instala o actualiza todo el sistema en una instancia AWS EC2 (Ubuntu 24.04).
+# FitPulse · instala o actualiza todo el sistema en una instancia AWS EC2 (Ubuntu 24.04 o más reciente).
 #
 #   curl -fsSL https://raw.githubusercontent.com/2023371115-rgb/fitpulse-backend/main/deploy/aws.sh | sudo bash
 #
@@ -28,9 +28,12 @@ log "1/8 Deteniendo la versión anterior (si existe)"
 # La primera versión de prueba corría como servicio "fitpulse" en el puerto 80.
 systemctl disable --now fitpulse 2>/dev/null || true
 
-log "2/8 Memoria swap de 2 GB (compilar Angular en una t3.micro)"
+log "2/8 Memoria swap de 1 GB (compilar Angular en una t3.micro)"
+FREE_MB=$(df -Pm / | awk 'NR==2 {print $4}')
+echo "Espacio libre en disco: ${FREE_MB} MB"
+[ "$FREE_MB" -ge 1800 ] || { echo "Se necesitan al menos 1.8 GB libres. Amplía el volumen EBS de la instancia."; exit 1; }
 if ! swapon --show | grep -q /swapfile; then
-  fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
+  fallocate -l 1G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
   grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
 
@@ -122,6 +125,9 @@ NODE_OPTIONS=--max-old-space-size=1536 npx ng build --configuration production
 mkdir -p "$WEB_ROOT"
 rm -rf "${WEB_ROOT:?}"/*
 cp -r dist/frontend/. "$WEB_ROOT/"
+# Libera espacio: las dependencias de compilación ya no hacen falta.
+rm -rf node_modules .angular
+npm cache clean --force >/dev/null 2>&1 || true
 
 log "8/8 nginx"
 cat > /etc/nginx/sites-available/fitpulse <<'NGINX'
