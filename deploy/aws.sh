@@ -23,6 +23,10 @@ DB_USER=fitpulse_app
 log() { printf '\n\033[1;32m== %s\033[0m\n' "$*"; }
 [ "$(id -u)" = 0 ] || { echo "Ejecuta con sudo"; exit 1; }
 export DEBIAN_FRONTEND=noninteractive
+# Sin preguntas interactivas: el script llega por "curl | bash" y cualquier pregunta
+# leería el resto del script como respuesta.
+export NG_CLI_ANALYTICS=false CI=true
+exec </dev/null
 
 log "1/8 Deteniendo la versión anterior (si existe)"
 # La primera versión de prueba corría como servicio "fitpulse" en el puerto 80.
