@@ -31,6 +31,9 @@ async function requireSuperAdmin(req, res, next) {
 
 router.use(authMiddleware, requireSuperAdmin);
 
+// Reportes de fallos: listar y cambiar estado
+router.use('/tickets', require('./tickets').admin);
+
 router.get('/users', async (_req, res) => {
   try {
     await ensureAdminColumns();

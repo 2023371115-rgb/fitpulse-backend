@@ -104,11 +104,34 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS notifications (
   id CHAR(36) PRIMARY KEY,
   user_id CHAR(36) NOT NULL,
-  kind ENUM('goal','sync','heart','battery','session','tip') NOT NULL DEFAULT 'tip',
+  kind ENUM('goal','sync','heart','battery','session','tip','ticket') NOT NULL DEFAULT 'tip',
   title VARCHAR(120) NOT NULL,
   body VARCHAR(500) NOT NULL,
   read_at DATETIME NULL,
   created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
   INDEX idx_notifications_user_created (user_id, created_at),
   CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Reportes de fallos (tickets) enviados desde la app móvil o la web
+CREATE TABLE IF NOT EXISTS tickets (
+  id CHAR(36) PRIMARY KEY,
+  folio INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
+  user_id CHAR(36) NULL,
+  title VARCHAR(140) NOT NULL,
+  description TEXT NOT NULL,
+  category ENUM('bug','crash','ui','performance','data','other') NOT NULL DEFAULT 'bug',
+  severity ENUM('low','medium','high','critical') NOT NULL DEFAULT 'medium',
+  status ENUM('open','in_progress','resolved','closed') NOT NULL DEFAULT 'open',
+  screen VARCHAR(80) NULL COMMENT 'pantalla donde ocurrió el fallo',
+  platform VARCHAR(40) NULL COMMENT 'android, ios, web, windows…',
+  app_version VARCHAR(40) NULL,
+  device_info VARCHAR(255) NULL,
+  admin_note TEXT NULL,
+  created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  resolved_at DATETIME NULL,
+  INDEX idx_tickets_user_created (user_id, created_at),
+  INDEX idx_tickets_status_created (status, created_at),
+  CONSTRAINT fk_tickets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;

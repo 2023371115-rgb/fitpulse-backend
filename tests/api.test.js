@@ -308,6 +308,89 @@ test('panel de administración por rol', async () => {
   assert.equal((await api('GET', '/api/admin/users', { token: fake })).status, 200);
 });
 
+test('reportes de fallos (tickets)', async () => {
+  const token = await register('tickets@correo.com', 'Reporta');
+  // Validación
+  let r = await api('POST', '/api/tickets', { token, body: { title: 'x', description: 'corto' } });
+  assert.equal(r.status, 400);
+  r = await api('POST', '/api/tickets', { token, body: { title: 'Falla', description: 'La app se cierra al guardar', severity: 'urgente' } });
+  assert.equal(r.status, 400);
+
+  r = await api('POST', '/api/tickets', { token, body: {
+    title: 'La app se cierra al guardar una sesión',
+    description: 'Al tocar Guardar después de correr, la app se cierra sola.',
+    category: 'crash', severity: 'high', screen: 'Actividad', platform: 'android', app_version: '0.4.0',
+  } });
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  const t = r.body.ticket;
+  assert.match(t.code, /^FP-\d{4}$/);
+  assert.equal(t.status, 'open');
+  assert.equal(t.category, 'crash');
+
+  const mine = await api('GET', '/api/tickets', { token });
+  assert.equal(mine.body.items.length, 1);
+  assert.equal((await api('GET', `/api/tickets/${t.id}`, { token })).status, 200);
+
+  // Otro usuario no lo ve
+  const other = await register('ajeno@correo.com', 'Ajeno');
+  assert.equal((await api('GET', `/api/tickets/${t.id}`, { token: other })).status, 404);
+  assert.equal((await api('GET', '/api/admin/tickets', { token: other })).status, 403);
+
+  // El administrador lo atiende y el usuario recibe aviso
+  await db.query("UPDATE users SET role = 'admin' WHERE email = 'ajeno@correo.com'");
+  const list = await api('GET', '/api/admin/tickets', { token: other });
+  assert.equal(list.status, 200);
+  assert.ok(list.body.counts.open >= 1);
+  const upd = await api('PATCH', `/api/admin/tickets/${t.id}`, { token: other, body: { status: 'resolved', admin_note: 'Corregido en 0.4.1' } });
+  assert.equal(upd.status, 200);
+  assert.equal(upd.body.ticket.status, 'resolved');
+  assert.ok(upd.body.ticket.resolved_at);
+  const n = await api('GET', '/api/notifications', { token });
+  assert.ok(n.body.items.some(x => x.kind === 'ticket' && x.title.includes('Resuelto')));
+});
+
+test('buscador tipo Elasticsearch', async () => {
+  const token = await register('busca@correo.com', 'Buscadora');
+  const start = new Date(Date.now() - 3600e3).toISOString();
+  const end = new Date(Date.now() - 1800e3).toISOString();
+  await api('POST', '/api/sessions', { token, body: { type: 'cycling', started_at: start, ended_at: end, distance_km: 12, notes: 'Ruta por el parque con subidas' } });
+  await api('POST', '/api/sessions', { token, body: { type: 'running', started_at: start, ended_at: end, distance_km: 5, notes: 'Carrera ligera' } });
+  await api('POST', '/api/tickets', { token, body: { title: 'Pantalla de métricas lenta', description: 'Las gráficas tardan mucho en cargar', category: 'performance' } });
+
+  assert.equal((await api('GET', '/api/search?q=', { token })).status, 400);
+
+  // Sin acentos y en plural encuentra "Natación"/"métricas"
+  let r = await api('GET', '/api/search?q=metricas', { token });
+  assert.equal(r.status, 200);
+  assert.ok(r.body.hits.total >= 1);
+  assert.ok(r.body.aggregations.by_index.tickets >= 1);
+  assert.ok(typeof r.body.took === 'number');
+
+  // Fuzzy: error de dedo
+  r = await api('GET', '/api/search?q=bisicleta', { token });
+  assert.equal(r.body.hits.hits[0]._index, 'sessions');
+  assert.equal(r.body.hits.hits[0]._source.type, 'cycling');
+
+  // Prefijo mientras se escribe + resaltado
+  r = await api('GET', '/api/search?q=parq', { token });
+  assert.ok(r.body.hits.hits.length >= 1);
+  assert.ok(JSON.stringify(r.body.hits.hits[0].highlight).includes('<em>parque</em>'));
+
+  // Filtro por índice y secciones de la app
+  r = await api('GET', '/api/search?q=reportar%20fallo&index=screens', { token });
+  assert.equal(r.body.hits.hits[0]._id, 'tickets');
+  assert.ok(r.body.hits.hits.every(h => h._index === 'screens'));
+
+  // Sin resultados: sugerencia
+  r = await api('GET', '/api/search?q=carrerq', { token });
+  assert.ok(r.body.hits.total >= 1 || r.body.suggestion);
+
+  // No ve datos de otros usuarios
+  const other = await register('otro-busca@correo.com', 'Otro');
+  r = await api('GET', '/api/search?q=parque', { token: other });
+  assert.equal(r.body.hits.hits.filter(h => h._index === 'sessions').length, 0);
+});
+
 test('JSON mal formado y rutas inexistentes', async () => {
   const res = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{malo' });
   assert.equal(res.status, 400);

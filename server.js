@@ -21,6 +21,7 @@ const goalsRouter = require('./routes/goals');
 const sessionsRouter = require('./routes/sessions');
 const metricsRouter = require('./routes/metrics');
 const notificationsRouter = require('./routes/notifications');
+const ticketsRouter = require('./routes/tickets');
 
 const app = express();
 app.use(cors());
@@ -28,13 +29,13 @@ app.use(express.json({ limit: '3mb' }));
 
 const appVersion = {
   name: 'FitPulse Health Lab',
-  version: '1.1.0',
+  version: '1.2.0',
   stage: 'stable',
-  releasedAt: '2026-10-27',
+  releasedAt: '2026-11-06',
   services: {
-    frontend: 'Vercel',
-    backend: 'Render',
-    database: 'Aiven MySQL',
+    frontend: process.env.DEPLOY_FRONTEND || 'Vercel',
+    backend: process.env.DEPLOY_BACKEND || 'Render',
+    database: process.env.DEPLOY_DATABASE || 'Aiven MySQL',
     wearable: 'Flutter Wear OS'
   }
 };
@@ -117,6 +118,7 @@ app.use('/api/goals', goalsRouter);
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/metrics', metricsRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/tickets', ticketsRouter);
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 // Errores no controlados (por ejemplo, JSON mal formado)

@@ -18,6 +18,8 @@ const { DAY_MS, startOfLocalDay } = require('../services/time');
 const EMAIL = (process.env.SEED_EMAIL || 'ana@correo.com').toLowerCase();
 const PASSWORD = process.env.SEED_PASSWORD || 'fitpulse123';
 const TZ = Number(process.env.SEED_TZ || -360);
+const ADMIN_EMAIL = (process.env.SEED_ADMIN_EMAIL || 'admin@fitpulse.com').toLowerCase();
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'admin12345';
 
 const now = new Date();
 const today = startOfLocalDay(now, TZ);
@@ -157,8 +159,34 @@ async function main() {
     );
   }
 
+  // Reportes de fallos de ejemplo
+  const tickets = [
+    ['La gráfica de pasos no carga', 'Al abrir Métricas la gráfica de la semana se queda en blanco unos segundos.', 'performance', 'medium', 'resolved', 'Métricas', 'android', 'Optimizamos la consulta; ya carga al instante.', 3],
+    ['No se sincroniza la banda', 'Toco Sincronizar ahora y la última sincronización no cambia.', 'bug', 'high', 'in_progress', 'Dispositivos', 'android', 'Estamos revisando la conexión con el wearable.', 1],
+  ];
+  for (const [title, description, category, severity, status, screen, platform, note, daysAgo] of tickets) {
+    await db.query(
+      `INSERT INTO tickets(id, user_id, title, description, category, severity, status, screen, platform, app_version, admin_note, resolved_at, created_at)
+       VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, '0.4.0', ?, ?, ?)`,
+      [uuidv4(), userId, title, description, category, severity, status, screen, platform, note,
+        status === 'resolved' ? at(daysAgo - 1, 12) : null, at(daysAgo, 10)]
+    );
+  }
+
+  // Cuenta de administrador para la web (panel Admin: usuarios y reportes)
+  const admin = await db.query('SELECT id FROM users WHERE email = ?', [ADMIN_EMAIL]);
+  if (!admin.rows.length) {
+    await db.query(
+      "INSERT INTO users(id, email, password_hash, name, role) VALUES(?, ?, ?, 'Administrador', 'admin')",
+      [uuidv4(), ADMIN_EMAIL, await bcrypt.hash(ADMIN_PASSWORD, 10)]
+    );
+  } else {
+    await db.query("UPDATE users SET role = 'admin', active = 1 WHERE email = ?", [ADMIN_EMAIL]);
+  }
+
   console.log(`Cuenta demo lista: ${EMAIL} / ${PASSWORD}`);
-  console.log(`  ${SESSIONS.length} sesiones, ${goals.length} metas, ${rows.length} lecturas del wearable, ${notices.length} notificaciones`);
+  console.log(`Administrador: ${ADMIN_EMAIL} / ${admin.rows.length ? '(contraseña sin cambios)' : ADMIN_PASSWORD}`);
+  console.log(`  ${SESSIONS.length} sesiones, ${goals.length} metas, ${rows.length} lecturas del wearable, ${notices.length} notificaciones, ${tickets.length} reportes`);
   await db.close();
 }
 

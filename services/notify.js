@@ -1,7 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../db');
 
-const KINDS = new Set(['goal', 'sync', 'heart', 'battery', 'session', 'tip']);
+const KINDS = new Set(['goal', 'sync', 'heart', 'battery', 'session', 'tip', 'ticket']);
 
 /** Crea una notificación para el usuario. Nunca rompe la petición que la origina. */
 async function notify(userId, kind, title, body) {

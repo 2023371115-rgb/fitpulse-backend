@@ -15,9 +15,11 @@ App Flutter / Consola web / Wearable  →  API REST (Express)  →  MySQL
 - Resumen de métricas por semana o mes: pasos por día, ritmo en reposo y tiempo por actividad.
 - Dispositivos y wearable: vinculación por código, lecturas de sensores, batería y última sincronización.
 - Notificaciones automáticas: meta cumplida, sesión guardada, ritmo alto, sincronización y batería baja.
-- Panel de administración por rol, Smart TV (SSE) y búsqueda.
+- Panel de administración por rol y Smart TV (SSE).
+- **Reportes de fallos (tickets)** desde la app y la web, atendidos por el administrador.
+- **Buscador tipo Elasticsearch**: índice invertido, BM25, fuzzy, prefijos, resaltado y facetas (`/api/search`).
 - Migración idempotente y compatible con MySQL 8 y con MariaDB/XAMPP.
-- 22 pruebas automáticas de la API contra MySQL.
+- 24 pruebas automáticas de la API contra MySQL.
 
 Referencia completa de endpoints: [`docs/api.md`](docs/api.md).
 
@@ -74,8 +76,8 @@ Al migrar una base anterior, las cuentas llamadas "superadmin" conservan su acce
 
 ## Despliegue
 
-- Backend: Render (`https://fitpulse-backend-r77o.onrender.com`).
-- Base de datos: Aiven MySQL. Usa `DB_SSL=true` si el servidor exige SSL.
+- **AWS EC2** (Ubuntu 24.04): backend, web Angular y MySQL (MariaDB) en la misma instancia, con nginx. Instalar o actualizar con `deploy/aws.sh` (ver `deploy/README.md`).
+- Alternativa anterior: Render (`https://fitpulse-backend-r77o.onrender.com`) + Aiven MySQL. Usa `DB_SSL=true` si el servidor exige SSL.
 - Salud: `/api/health` · versión: `/api/version`.
 
 Más documentación: `docs/security.md`, `docs/stable-version.md`, `docs/audit-tests.md`.

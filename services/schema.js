@@ -31,6 +31,7 @@ const COLUMNS = [
 
 const ENUMS = [
   ['goals', 'type', ['steps', 'calories', 'heart_rate', 'weight', 'sleep', 'distance', 'workouts', 'active'], "NOT NULL"],
+  ['notifications', 'kind', ['goal', 'sync', 'heart', 'battery', 'session', 'tip', 'ticket'], "NOT NULL DEFAULT 'tip'"],
 ];
 
 const INDEXES = [

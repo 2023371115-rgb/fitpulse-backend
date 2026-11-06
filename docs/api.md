@@ -136,3 +136,38 @@ Las rutas `/admin/*` requieren `role = 'admin'` en la tabla `users`. Ese rol sol
 |---|---|---|
 | GET | `/health` | `{ ok: true, version }` |
 | GET | `/version` | Versión de la API |
+
+## Reportes de fallos (tickets)
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | `/tickets` | Reporta un fallo: `title` (3–140), `description` (10–4000), opcionales `category` (`bug`, `crash`, `ui`, `performance`, `data`, `other`), `severity` (`low`, `medium`, `high`, `critical`), `screen`, `platform`, `app_version`, `device_info`. `201 { ticket }` con folio legible `code` (`FP-0001`) |
+| GET | `/tickets?status=open` | Mis reportes, más recientes primero |
+| GET | `/tickets/:id` | Detalle de un reporte propio |
+| GET | `/admin/tickets?status=&severity=` | Solo admin: todos los reportes ordenados por estado y gravedad, con `counts` por estado |
+| PATCH | `/admin/tickets/:id` | Solo admin: `status` (`open`, `in_progress`, `resolved`, `closed`), `severity`, `admin_note`. Al cambiar el estado se notifica al usuario |
+
+## Búsqueda interna (tipo Elasticsearch)
+
+`GET /search?q=bisicleta parq&index=sessions,goals&size=20`
+
+Busca en sesiones, metas, notificaciones, dispositivos, reportes de fallos y secciones de la app del usuario (el admin también en todos los reportes y usuarios). Motor propio en `services/searchEngine.js`:
+
+- Índice invertido con análisis en español: sin acentos, sin palabras vacías, singular/plural.
+- Puntuación **BM25** con peso por campo (título ×3, etiquetas ×2, texto ×1).
+- **Prefijo** en la última palabra (búsqueda mientras se escribe) y **fuzzy** por distancia de Levenshtein (1 error hasta 6 letras, 2 a partir de 7).
+- Respuesta con la forma de Elasticsearch:
+
+```json
+{
+  "took": 1.5,
+  "hits": { "total": 3, "max_score": 4.6, "hits": [
+    { "_index": "sessions", "_id": "…", "_score": 4.6, "_source": { "type": "cycling", "distance_km": 12 },
+      "highlight": { "title": ["<em>Bicicleta</em> ciclismo"], "body": ["Ruta por el <em>parque</em>"] } }
+  ] },
+  "aggregations": { "by_index": { "sessions": 1, "notifications": 1, "screens": 1 } },
+  "suggestion": null
+}
+```
+
+Sin resultados devuelve `suggestion` ("¿Quisiste decir…?"). La búsqueda en la web externa sigue en `/search/external`.
