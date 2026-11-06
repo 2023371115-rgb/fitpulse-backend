@@ -26,7 +26,6 @@ export DEBIAN_FRONTEND=noninteractive
 # Sin preguntas interactivas: el script llega por "curl | bash" y cualquier pregunta
 # leería el resto del script como respuesta.
 export NG_CLI_ANALYTICS=false CI=true
-exec </dev/null
 
 log "1/8 Deteniendo la versión anterior (si existe)"
 # La primera versión de prueba corría como servicio "fitpulse" en el puerto 80.
@@ -42,8 +41,8 @@ if ! swapon --show | grep -q /swapfile; then
 fi
 
 log "3/8 Paquetes: Node.js, MariaDB, nginx, git"
-apt-get update -qq
-apt-get install -y -qq nodejs npm mariadb-server nginx git curl >/dev/null
+apt-get update -qq </dev/null
+apt-get install -y -qq nodejs npm mariadb-server nginx git curl >/dev/null </dev/null
 systemctl enable --now mariadb nginx >/dev/null
 node -v
 
@@ -74,8 +73,8 @@ fetch() { # repo rama destino
     rm -rf "$3" && git clone -q --depth 1 -b "$2" "$GH/$1.git" "$3"
   fi
 }
-fetch fitpulse-backend "$BRANCH" "$APP/backend"
-fetch fitpulse-frontend "$WEB_BRANCH" "$APP/frontend"
+fetch fitpulse-backend "$BRANCH" "$APP/backend" </dev/null
+fetch fitpulse-frontend "$WEB_BRANCH" "$APP/frontend" </dev/null
 
 log "6/8 API (Node.js + Express)"
 cd "$APP/backend"
@@ -94,10 +93,10 @@ DEPLOY_BACKEND=AWS EC2 (Node.js)
 DEPLOY_DATABASE=MariaDB en AWS EC2
 EOV
 chmod 600 .env
-npm ci --omit=dev --no-audit --no-fund --loglevel=error
-node migrate.js
+npm ci --omit=dev --no-audit --no-fund --loglevel=error </dev/null
+node migrate.js </dev/null
 if [ ! -f /etc/fitpulse/.seeded ]; then
-  node scripts/seed.js && touch /etc/fitpulse/.seeded
+  node scripts/seed.js </dev/null && touch /etc/fitpulse/.seeded
 fi
 mkdir -p uploads
 chown -R fitpulse:fitpulse "$APP/backend"
@@ -124,8 +123,8 @@ systemctl restart fitpulse-api
 
 log "7/8 Web (Angular) — compilando, tarda unos minutos"
 cd "$APP/frontend"
-npm ci --no-audit --no-fund --loglevel=error
-NODE_OPTIONS=--max-old-space-size=1536 npx ng build --configuration production
+npm ci --no-audit --no-fund --loglevel=error </dev/null
+NODE_OPTIONS=--max-old-space-size=1536 npx ng build --configuration production </dev/null
 mkdir -p "$WEB_ROOT"
 rm -rf "${WEB_ROOT:?}"/*
 cp -r dist/frontend/. "$WEB_ROOT/"
