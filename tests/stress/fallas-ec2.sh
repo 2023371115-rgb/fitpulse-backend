@@ -19,7 +19,9 @@ SECS="${2:-30}"
 ts() { date -u '+%H:%M:%S.%3N UTC'; }
 NODE_PID() { systemctl show -p MainPID --value fitpulse-api; }
 RULE=(INPUT -p tcp --dport 80 -m comment --comment fitpulse-p12 -j DROP)
-RULE_OUT=(OUTPUT -p tcp --sport 80 -m comment --comment fitpulse-p12-out -j DROP)
+# Solo paquetes con datos (≥ 120 bytes): el saludo TCP (SYN-ACK) y los ACK sí salen, así la solicitud
+# siempre llega completa y se procesa; lo único que se pierde es la respuesta HTTP.
+RULE_OUT=(OUTPUT -p tcp --sport 80 -m length --length 120:65535 -m comment --comment fitpulse-p12-out -j DROP)
 
 revert() {
   case "$MODE" in
