@@ -109,7 +109,11 @@ cat > /etc/systemd/system/fitpulse-api.service <<'UNIT'
 [Unit]
 Description=FitPulse API (Node.js + Express)
 After=network.target mariadb.service
-Requires=mariadb.service
+# Wants (no Requires): si MariaDB se detiene o reinicia, la API sigue viva, responde 500 mientras
+# tanto y su pool se reconecta solo. Con Requires, systemd detenía también la API y no la volvía
+# a levantar (defecto D-16 encontrado en la Práctica 12, prueba RES-04 "bd-caida").
+Wants=mariadb.service
+StartLimitIntervalSec=0
 
 [Service]
 User=fitpulse
