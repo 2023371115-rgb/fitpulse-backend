@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
+const { idempotent } = require('../middleware/idempotency');
 const { activeGoals, withProgress } = require('../services/goalProgress');
 const { notify } = require('../services/notify');
 const { tzOffset, parseDate } = require('../services/time');
@@ -114,7 +115,7 @@ router.get('/:sessionId', authMiddleware, async (req, res) => {
 });
 
 // POST /api/sessions — registra una sesión de actividad
-router.post('/', authMiddleware, async (req, res) => {
+router.post('/', authMiddleware, idempotent, async (req, res) => {
   try {
     const b = req.body || {};
     const startedAt = parseDate(b.started_at);

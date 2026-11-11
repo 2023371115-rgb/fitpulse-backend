@@ -40,6 +40,8 @@ const INDEXES = [
   ['metrics', 'idx_metrics_device_time', '(device_id, recorded_at)'],
   ['goals', 'idx_goals_user_created', '(user_id, created_at)'],
   ['sessions', 'idx_sessions_user_started', '(user_id, started_at)'],
+  // Práctica 12: lista de reportes del administrador sin recorrer toda la tabla ni ordenar en memoria
+  ['tickets', 'idx_tickets_rank', '(status, severity DESC, created_at DESC)'],
 ];
 
 function splitStatements(sql) {

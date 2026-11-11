@@ -133,5 +133,22 @@ CREATE TABLE IF NOT EXISTS tickets (
   resolved_at DATETIME NULL,
   INDEX idx_tickets_user_created (user_id, created_at),
   INDEX idx_tickets_status_created (status, created_at),
+  INDEX idx_tickets_rank (status, severity DESC, created_at DESC),
   CONSTRAINT fk_tickets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- Práctica 12 · Claves de idempotencia para escrituras que la app puede reintentar
+-- (POST /api/sessions y POST /api/tickets con el encabezado Idempotency-Key).
+-- status NULL = la solicitud original sigue en proceso. Se borran a las 24 h.
+CREATE TABLE IF NOT EXISTS idempotency_keys (
+  user_id CHAR(36) NOT NULL,
+  idem_key VARCHAR(80) NOT NULL,
+  method VARCHAR(8) NOT NULL,
+  path VARCHAR(120) NOT NULL,
+  request_hash CHAR(64) NOT NULL,
+  status SMALLINT NULL,
+  response MEDIUMTEXT NULL,
+  created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (user_id, idem_key),
+  INDEX idx_idempotency_created (created_at)
 ) ENGINE=InnoDB;

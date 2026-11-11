@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
+const { idempotent } = require('../middleware/idempotency');
 const { notify } = require('../services/notify');
 const { optText, sendError, ValidationError } = require('../services/validate');
 
@@ -56,7 +57,7 @@ async function findTicket(id) {
 }
 
 // POST /api/tickets — reportar un fallo
-router.post('/', async (req, res) => {
+router.post('/', idempotent, async (req, res) => {
   try {
     const t = readTicketBody(req.body);
     const id = uuidv4();
@@ -104,6 +105,11 @@ router.get('/:id', async (req, res) => {
 const admin = express.Router();
 
 // GET /api/admin/tickets?status=open&severity=high
+// Orden: abiertos primero, luego por gravedad (crítica → baja) y más recientes.
+// Práctica 12: antes era ORDER BY FIELD(status…), FIELD(severity…), que obliga a leer TODA la
+// tabla y ordenarla en memoria. Las columnas son ENUM y MariaDB ordena un ENUM por su posición
+// ('open','in_progress','resolved','closed' / 'low'…'critical'), así que este orden es idéntico
+// y lo resuelve el índice idx_tickets_rank leyendo solo las 500 filas que devuelve.
 admin.get('/', async (req, res) => {
   try {
     const where = [];
@@ -114,8 +120,7 @@ admin.get('/', async (req, res) => {
       `SELECT ${FIELDS}, u.email AS user_email, u.name AS user_name
        FROM tickets t LEFT JOIN users u ON u.id = t.user_id
        ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
-       ORDER BY FIELD(t.status,'open','in_progress','resolved','closed'),
-                FIELD(t.severity,'critical','high','medium','low'), t.created_at DESC
+       ORDER BY t.status, t.severity DESC, t.created_at DESC
        LIMIT 500`,
       params
     );

@@ -4,6 +4,7 @@ const authMiddleware = require('../middleware/auth');
 const { externalSearch } = require('../services/externalSearch');
 const { SearchIndex } = require('../services/searchEngine');
 const { sendError, intParam } = require('../services/validate');
+const searchCache = require('../services/searchCache');
 
 const router = express.Router();
 
@@ -59,7 +60,7 @@ async function buildIndex(userId, isAdmin) {
     query('SELECT id, name, type, status, battery, last_sync_at FROM devices WHERE owner_id = ?', [userId]),
     isAdmin
       ? query('SELECT id, folio, title, description, category, severity, status, screen, platform, created_at FROM tickets ORDER BY created_at DESC LIMIT 1000')
-      : query('SELECT id, folio, title, description, category, severity, status, screen, platform, created_at FROM tickets WHERE user_id = ? ORDER BY created_at DESC', [userId]),
+      : query('SELECT id, folio, title, description, category, severity, status, screen, platform, created_at FROM tickets WHERE user_id = ? ORDER BY created_at DESC LIMIT 500', [userId]),
   ]);
 
   for (const s of sessions.rows) {
@@ -132,7 +133,7 @@ router.get('/', authMiddleware, async (req, res) => {
     const isAdmin = roleRow.rows[0]?.role === 'admin';
     const indices = req.query.index ? String(req.query.index).split(',').map(s => s.trim()).filter(Boolean) : undefined;
     const size = intParam(req.query.size, 20, 1, 100);
-    const index = await buildIndex(req.user.id, isAdmin);
+    const index = await searchCache.get(req.user.id, isAdmin, () => buildIndex(req.user.id, isAdmin));
     return res.json(index.search(q, { size, indices }));
   } catch (err) {
     return sendError(res, err, 'No se pudo completar la búsqueda', 'search error');
@@ -157,3 +158,4 @@ router.get('/external', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.buildIndex = buildIndex;

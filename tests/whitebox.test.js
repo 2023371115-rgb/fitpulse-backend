@@ -271,10 +271,12 @@ test('E3 POST /api/tickets y PATCH /api/admin/tickets/:id', async t => {
     const r = await api('PATCH', '/api/admin/tickets/' + ticketId, { token: admin.token, body: { status: 'open' } });
     assert.equal(r.body.ticket.resolved_at, null);
   });
-  await t.test('D-06 el mismo reporte reenviado (reintento) no debería duplicarse', { todo: 'Mejora D-06: no hay llave de idempotencia; cada reintento crea otro ticket' }, async () => {
+  await t.test('D-06 (corregido en P12) el mismo reporte reenviado con la misma Idempotency-Key no se duplica', async () => {
     const key = { 'Idempotency-Key': 'reintento-1' };
     const a = await api('POST', '/api/tickets', { token: user.token, body: valid, headers: key });
     const b = await api('POST', '/api/tickets', { token: user.token, body: valid, headers: key });
+    assert.equal(a.status, 201);
+    assert.equal(b.status, 201);
     assert.equal(a.body.ticket.id, b.body.ticket.id);
   });
   await t.test('D-02 (corregido) workspaceId con "../" se rechaza con 400 y no escribe fuera de uploads/', async () => {

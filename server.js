@@ -24,6 +24,10 @@ const notificationsRouter = require('./routes/notifications');
 const ticketsRouter = require('./routes/tickets');
 
 const app = express();
+// Detrás de nginx: la IP real del cliente viene en X-Forwarded-For (1 proxy de confianza).
+// Sin esto todas las solicitudes parecen venir de 127.0.0.1 y el límite de intentos de login
+// (20 cada 15 min) se compartía entre TODOS los usuarios (defecto encontrado en la Práctica 12).
+app.set('trust proxy', 'loopback');
 app.use(cors());
 app.use(express.json({ limit: '3mb' }));
 
@@ -108,6 +112,7 @@ app.get('/api/workspaces/:workspaceId/search', authMiddleware, async (req, res) 
 
 
 // Rutas
+app.use('/api', require('./services/searchCache').invalidateOnWrite);
 app.use('/api/workspaces/:workspaceId/files', authMiddleware, filesRouter);
 app.use('/api/search', searchRouter);
 app.use('/api/auth', authRouter);

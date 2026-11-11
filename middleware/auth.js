@@ -8,6 +8,9 @@ function authMiddleware(req, res, next){
   const token = h.slice(7);
   try{
     const payload = jwt.verify(token, JWT_SECRET);
+    // Los ids son UUID (texto). Un sub numérico haría que MariaDB compare user_id = 0
+    // convirtiendo el texto a número y coincidiría con otros usuarios (Práctica 12).
+    if (typeof payload.sub !== 'string' || !payload.sub) return res.status(401).json({ error: 'invalid token' });
     req.user = { id: payload.sub, email: payload.email };
     return next();
   }catch(err){
