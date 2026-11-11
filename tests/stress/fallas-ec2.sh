@@ -6,6 +6,8 @@
 #   sudo bash fallas-ec2.sh sin-respuesta 40 # RES-03: descarta los paquetes al puerto 80 → la app espera hasta su timeout
 #   sudo bash fallas-ec2.sh pausa       25   # RES-07/08: congela la API (SIGSTOP); las solicitudes se procesan TARDE,
 #                                            #   después del timeout de 15 s de la app (el servidor guarda, la respuesta no llega)
+#   sudo bash fallas-ec2.sh respuesta-perdida 40  # RES-07/08: el servidor recibe y GUARDA, pero sus respuestas
+#                                            #   (puerto 80 de salida) se descartan: la app no se entera y reintenta
 #   sudo bash fallas-ec2.sh estado           # muestra cómo está todo y deshace cualquier fallo que haya quedado
 #
 # Cada fallo se revierte solo al terminar el tiempo, con Ctrl+C o si la terminal se cierra (trap).
@@ -17,6 +19,7 @@ SECS="${2:-30}"
 ts() { date -u '+%H:%M:%S.%3N UTC'; }
 NODE_PID() { systemctl show -p MainPID --value fitpulse-api; }
 RULE=(INPUT -p tcp --dport 80 -m comment --comment fitpulse-p12 -j DROP)
+RULE_OUT=(OUTPUT -p tcp --sport 80 -m comment --comment fitpulse-p12-out -j DROP)
 
 revert() {
   case "$MODE" in
@@ -24,6 +27,7 @@ revert() {
     bd-caida) systemctl start mariadb ;;   # sin reiniciar la API: se prueba que el pool se reconecte solo
     sin-respuesta) while iptables -C "${RULE[@]}" 2>/dev/null; do iptables -D "${RULE[@]}"; done ;;
     pausa) kill -CONT "$(NODE_PID)" 2>/dev/null ;;
+    respuesta-perdida) while iptables -C "${RULE_OUT[@]}" 2>/dev/null; do iptables -D "${RULE_OUT[@]}"; done ;;
   esac
   echo "$(ts)  FIN del fallo '$MODE' · servicio restablecido"
   check
@@ -55,15 +59,16 @@ countdown() {
 }
 
 case "$MODE" in
-  api-caida|bd-caida|sin-respuesta|pausa) ;;
+  api-caida|bd-caida|sin-respuesta|pausa|respuesta-perdida) ;;
   estado)
     iptables -C "${RULE[@]}" 2>/dev/null && { iptables -D "${RULE[@]}"; echo "Quité una regla DROP pendiente del puerto 80"; }
+    iptables -C "${RULE_OUT[@]}" 2>/dev/null && { iptables -D "${RULE_OUT[@]}"; echo "Quité una regla DROP pendiente de salida del puerto 80"; }
     kill -CONT "$(NODE_PID)" 2>/dev/null
     systemctl is-active --quiet mariadb || systemctl start mariadb
     systemctl is-active --quiet fitpulse-api || systemctl start fitpulse-api
     echo "API: $(systemctl is-active fitpulse-api) · MariaDB: $(systemctl is-active mariadb) · nginx: $(systemctl is-active nginx)"
     check; exit 0 ;;
-  *) sed -n 2,13p "$0"; exit 1 ;;
+  *) sed -n 2,15p "$0"; exit 1 ;;
 esac
 
 [ "$(id -u)" = 0 ] || { echo "Ejecuta con sudo"; exit 1; }
@@ -76,6 +81,7 @@ case "$MODE" in
   bd-caida) systemctl stop mariadb; echo "  MariaDB está detenida: la API responde 500" ;;
   sin-respuesta) iptables -I "${RULE[@]}"; echo "  El puerto 80 descarta todo: las solicitudes quedan sin respuesta" ;;
   pausa) kill -STOP "$(NODE_PID)"; echo "  La API está congelada: recibe las solicitudes pero las procesará hasta el final" ;;
+  respuesta-perdida) iptables -I "${RULE_OUT[@]}"; echo "  Las solicitudes llegan y se procesan, pero ninguna respuesta sale del servidor" ;;
 esac
 code=$(curl -s -o /dev/null -m 3 -w '%{http_code}' http://127.0.0.1/api/health); echo "  /api/health ahora → ${code/000/sin respuesta (3 s)}"
 [ "$MODE" = bd-caida ] && echo "  consulta a la BD ahora → $(dbprobe) (la API sigue viva, pero falla todo lo que usa la BD)"
