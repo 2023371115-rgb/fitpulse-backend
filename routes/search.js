@@ -3,7 +3,7 @@ const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
 const { externalSearch } = require('../services/externalSearch');
 const { SearchIndex } = require('../services/searchEngine');
-const { sendError } = require('../services/validate');
+const { sendError, intParam } = require('../services/validate');
 
 const router = express.Router();
 
@@ -131,7 +131,7 @@ router.get('/', authMiddleware, async (req, res) => {
     const roleRow = await query('SELECT role FROM users WHERE id = ?', [req.user.id]);
     const isAdmin = roleRow.rows[0]?.role === 'admin';
     const indices = req.query.index ? String(req.query.index).split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    const size = Math.min(Math.max(Number(req.query.size) || 20, 1), 100);
+    const size = intParam(req.query.size, 20, 1, 100);
     const index = await buildIndex(req.user.id, isAdmin);
     return res.json(index.search(q, { size, indices }));
   } catch (err) {

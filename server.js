@@ -56,6 +56,7 @@ const uploadLimiter = rateLimit({
   message: { error: 'Límite de subidas alcanzado. Espera un momento.' }
 });
 app.use('/api/auth', authLimiter);
+app.use('/api/workspaces/:workspaceId', require('./middleware/workspace').checkWorkspace);
 app.use('/api/workspaces/:workspaceId/files', uploadLimiter);
 
 // Design tokens — compartidos con Angular (CSS variables) y Flutter

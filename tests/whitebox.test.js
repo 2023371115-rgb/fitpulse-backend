@@ -191,9 +191,15 @@ test('E2 POST /api/sessions', async t => {
     const after = (await api('GET', '/api/sessions?limit=200', { token })).body.length;
     assert.equal(after - before, 10);
   });
-  await t.test('D-01 GET /api/sessions?limit=5.5 debería responder 200 o 400, no 500', { todo: 'Defecto D-01: el límite decimal llega sin redondear al SQL (LIMIT 5.5)' }, async () => {
+  await t.test('D-01 (corregido) límites con decimales o fuera de rango ya no dan 500', async () => {
     const r = await api('GET', '/api/sessions?limit=5.5', { token });
-    assert.ok([200, 400].includes(r.status), `obtenido ${r.status}`);
+    assert.equal(r.status, 200);
+    assert.equal(r.body.length, 5);
+    for (const q of ['limit=-3', 'limit=1e400', 'limit=abc', 'limit=99999']) {
+      assert.equal((await api('GET', '/api/sessions?' + q, { token })).status, 200, q);
+    }
+    assert.equal((await api('GET', '/api/notifications?limit=2.7', { token })).status, 200);
+    assert.equal((await api('GET', '/api/search?q=carrera&size=3.3', { token })).status, 200);
   });
   await t.test('D-05 DELETE exitoso debería responder 204 sin cuerpo', { todo: 'Mejora D-05: hoy responde 200 con {"ok":true}' }, async () => {
     const c = await post({ started_at: minutesAgo(3) });
@@ -271,7 +277,7 @@ test('E3 POST /api/tickets y PATCH /api/admin/tickets/:id', async t => {
     const b = await api('POST', '/api/tickets', { token: user.token, body: valid, headers: key });
     assert.equal(a.body.ticket.id, b.body.ticket.id);
   });
-  await t.test('D-02 workspaceId con "../" no debería escribir fuera de uploads/', { todo: 'Defecto D-02: path.join con req.params.workspaceId permite salir de la carpeta' }, async () => {
+  await t.test('D-02 (corregido) workspaceId con "../" se rechaza con 400 y no escribe fuera de uploads/', async () => {
     const form = new FormData();
     form.append('file', new Blob(['%PDF-1.4 prueba'], { type: 'application/pdf' }), 'prueba.pdf');
     const res = await fetch(base + '/api/workspaces/..%2F..%2Fwb-traversal/files', { method: 'POST', headers: { Authorization: `Bearer ${user.token}` }, body: form });
@@ -279,5 +285,15 @@ test('E3 POST /api/tickets y PATCH /api/admin/tickets/:id', async t => {
     const escaped = fs.existsSync(outside);
     fs.rmSync(outside, { recursive: true, force: true });
     assert.equal(escaped, false, `HTTP ${res.status}: se creó ${outside}`);
+    assert.equal(res.status, 400);
+  });
+  await t.test('D-02b un workspaceId válido sigue funcionando', async () => {
+    const form = new FormData();
+    form.append('file', new Blob(['%PDF-1.4 prueba'], { type: 'application/pdf' }), 'prueba.pdf');
+    const res = await fetch(base + '/api/workspaces/whitebox_ok-1/files', { method: 'POST', headers: { Authorization: `Bearer ${user.token}` }, body: form });
+    const json = await res.json();
+    assert.equal(res.status, 201);
+    assert.match(json.file.storage_path, /^\/uploads\/whitebox_ok-1\//);
+    fs.rmSync(path.join(__dirname, '..', 'uploads', 'whitebox_ok-1'), { recursive: true, force: true });
   });
 });

@@ -6,7 +6,7 @@ const verifyToken = require('../middleware/auth');
 const { setState } = require('../services/tvSync');
 const { ensurePairingColumns } = require('../services/deviceSchema');
 const { notify } = require('../services/notify');
-const { optInt } = require('../services/validate');
+const { optInt, intParam } = require('../services/validate');
 
 const LOW_BATTERY = 20;
 
@@ -275,7 +275,7 @@ router.post('/:deviceId/metrics', async (req, res) => {
 // GET /api/devices/:deviceId/metrics  — últimas métricas (requiere auth de usuario)
 router.get('/:deviceId/metrics', verifyToken, async (req, res) => {
   try {
-    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const limit = intParam(req.query.limit, 50, 1, 200);
 
     // Verificar que el dispositivo pertenece al usuario
     const devResult = await query(

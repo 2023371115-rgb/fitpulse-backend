@@ -5,7 +5,7 @@ const authMiddleware = require('../middleware/auth');
 const { activeGoals, withProgress } = require('../services/goalProgress');
 const { notify } = require('../services/notify');
 const { tzOffset, parseDate } = require('../services/time');
-const { optNumber, optInt, optText, sendError, ValidationError } = require('../services/validate');
+const { optNumber, optInt, optText, sendError, ValidationError, intParam } = require('../services/validate');
 
 const router = express.Router();
 
@@ -87,7 +87,7 @@ router.get('/', authMiddleware, async (req, res) => {
     }
     const from = parseDate(req.query.from);
     if (from) { where.push('started_at >= ?'); params.push(from); }
-    const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 200);
+    const limit = intParam(req.query.limit, 100, 1, 200);
 
     const result = await query(
       `SELECT ${FIELDS} FROM sessions WHERE ${where.join(' AND ')} ORDER BY started_at DESC LIMIT ${limit}`,

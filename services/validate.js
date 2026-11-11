@@ -30,6 +30,17 @@ function optText(value, field, max) {
   return t || null;
 }
 
+/**
+ * Entero para parámetros como ?limit= y ?size=: descarta los decimales y lo deja en [min, max].
+ * Vacío, 0 o un valor que no es número usan el valor por defecto. Así el resultado siempre
+ * es un entero seguro para LIMIT (antes ?limit=5.5 llegaba tal cual al SQL y daba error 500).
+ */
+function intParam(value, fallback, min, max) {
+  const n = Math.trunc(Number(value));
+  if (!Number.isFinite(n) || n === 0) return fallback;
+  return Math.min(Math.max(n, min), max);
+}
+
 /** Responde 400 con el mensaje de validación, o 500 genérico en otros errores. */
 function sendError(res, err, fallback, logLabel) {
   if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
@@ -37,4 +48,4 @@ function sendError(res, err, fallback, logLabel) {
   return res.status(500).json({ error: fallback });
 }
 
-module.exports = { ValidationError, optNumber, optInt, optText, sendError };
+module.exports = { ValidationError, optNumber, optInt, optText, intParam, sendError };

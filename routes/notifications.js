@@ -1,7 +1,7 @@
 const express = require('express');
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
-const { sendError } = require('../services/validate');
+const { sendError, intParam } = require('../services/validate');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -9,7 +9,7 @@ router.use(authMiddleware);
 // GET /api/notifications?limit=50 — notificaciones del usuario, más recientes primero
 router.get('/', async (req, res) => {
   try {
-    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+    const limit = intParam(req.query.limit, 50, 1, 100);
     const result = await query(
       `SELECT id, kind, title, body, read_at, created_at, (read_at IS NOT NULL) AS is_read
        FROM notifications WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ${limit}`,
