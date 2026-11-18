@@ -1,0 +1,76 @@
+# Prácticas 13 y 14 · Integración continua de la API FitPulse (Node.js + Express + MariaDB).
+#
+# En cada push, pull request o a mano: levanta MariaDB 11 como servicio, instala
+# dependencias con npm ci y ejecuta todas las pruebas automatizadas (tests/*.test.js):
+#   api.test.js        flujo de la API (24)
+#   whitebox.test.js   caminos de login, sesiones y reportes (P11)
+#   p12.test.js        caché de búsqueda, índice, idempotencia y defectos de la P12
+#   p13.test.js        códigos HTTP esperados y persistencia en la base (P13/P14)
+# Cada archivo crea y borra su propia base de datos de pruebas.
+name: CI API
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruebas:
+    name: Pruebas de la API con MariaDB
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: "yes"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=24
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: ""
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Dependencias
+        run: npm ci --no-audit --no-fund
+
+      - name: Revisión de sintaxis
+        run: for f in server.js db.js routes/*.js middleware/*.js services/*.js; do node --check "$f" || exit 1; done
+
+      - name: Pruebas automatizadas
+        run: >
+          node --test --test-concurrency=1 --experimental-test-coverage
+          --test-reporter=spec --test-reporter-destination=stdout
+          --test-reporter=junit --test-reporter-destination=test-results.xml
+          tests/*.test.js
+
+      - name: Resumen de resultados
+        if: always()
+        run: python3 .github/scripts/ci_report.py junit test-results.xml "Pruebas de la API (node --test)"
+
+      - name: Dependencias con vulnerabilidades críticas (informativo)
+        if: always()
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=critical
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: resultados-api
+          path: test-results.xml
+          if-no-files-found: ignore
