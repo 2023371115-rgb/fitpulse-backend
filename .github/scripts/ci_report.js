@@ -34,12 +34,13 @@ function fromFlutter(file) {
     if (e.type === 'suite') suites[e.suite.id] = e.suite.path || '';
     else if (e.type === 'testStart') tests[e.test.id] = { ...e.test, t0: e.time || 0 };
     else if (e.type === 'error') (errors[e.testID] ||= []).push(e.error || '');
+    else if (e.type === 'print' && e.testID != null) (errors[e.testID] ||= []).push(e.message || ''); // excepciones de Flutter
     else if (e.type === 'testDone' && !e.hidden) {
       const t = tests[e.testID] || {};
       results.push({
         file: rel(suites[t.suiteID]), line: t.root_line || t.line, name: t.name || '?',
         status: e.skipped ? 'omitida' : e.result === 'success' ? 'aprobada' : 'fallida',
-        ms: Math.max(0, (e.time || 0) - (t.t0 || 0)), error: (errors[e.testID] || []).join('\n'),
+        ms: Math.max(0, (e.time || 0) - (t.t0 || 0)), error: (errors[e.testID] || []).filter(x => !/^Test failed\. See exception logs above/.test(x)).join('\n'),
       });
     } else if (e.type === 'done') total = e.time;
   }
@@ -77,10 +78,11 @@ const ok = by('aprobada'), bad = by('fallida'), skip = by('omitida');
 const secs = total ? `${(total / 1000).toFixed(1)} s` : 'n/d';
 
 console.log(`== ${title}: ${results.length} ejecutadas · ${ok.length} aprobadas · ${bad.length} fallidas · ${skip.length} omitidas · ${secs} ==`);
+for (const r of bad) { console.log(`---- ${r.name}`); console.log(r.error.slice(0, 4000)); }
 for (const r of results) console.log(`  ${{ aprobada: 'OK   ', fallida: 'FALLA', omitida: 'OMIT ' }[r.status]} ${String(r.ms).padStart(6)} ms  ${r.file}  ${r.name}`);
 for (const r of bad) {
   const loc = r.file ? `file=${r.file},${r.line ? `line=${r.line},` : ''}` : '';
-  console.log(`::error ${loc}title=${esc('Falla: ' + r.name.slice(0, 120))}::${esc(r.error.slice(0, 1500) || 'Prueba fallida')}`);
+  console.log(`::error ${loc}title=${esc('Falla: ' + r.name.slice(0, 120))}::${esc(r.error.slice(0, 3000) || 'Prueba fallida')}`);
 }
 console.log(`::${bad.length ? 'error' : 'notice'} title=${esc(title)}::${ok.length} aprobadas, ${bad.length} fallidas, ${skip.length} omitidas de ${results.length} en ${secs}`);
 
