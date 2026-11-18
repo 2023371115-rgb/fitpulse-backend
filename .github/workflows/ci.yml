@@ -1,12 +1,15 @@
 # Prácticas 13 y 14 · Integración continua de la API FitPulse (Node.js + Express + MariaDB).
 #
-# En cada push, pull request o a mano: levanta MariaDB 11 como servicio, instala
-# dependencias con npm ci y ejecuta todas las pruebas automatizadas (tests/*.test.js):
-#   api.test.js        flujo de la API (24)
+# En cada push, pull request o a mano: levanta una MariaDB temporal, instala dependencias
+# con npm ci y ejecuta todas las pruebas automatizadas (tests/*.test.js):
+#   api.test.js        flujo de la API
 #   whitebox.test.js   caminos de login, sesiones y reportes (P11)
 #   p12.test.js        caché de búsqueda, índice, idempotencia y defectos de la P12
 #   p13.test.js        códigos HTTP esperados y persistencia en la base (P13/P14)
 # Cada archivo crea y borra su propia base de datos de pruebas.
+#
+# Runner: self-hosted en la laptop de desarrollo (Windows 11). Los runners de GitHub no
+# arrancan para esta cuenta por un bloqueo de facturación; ver la nota en el CI de la app.
 name: CI API
 
 on:
@@ -18,55 +21,59 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& { . '{0}'; if ($LASTEXITCODE) { exit $LASTEXITCODE } }"
+
 jobs:
   pruebas:
     name: Pruebas de la API con MariaDB
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    services:
-      mariadb:
-        image: mariadb:11
-        env:
-          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: "yes"
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
-          --health-interval=5s --health-timeout=5s --health-retries=24
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 20
     env:
       DB_HOST: 127.0.0.1
-      DB_PORT: "3306"
+      DB_PORT: "3307"
       DB_USER: root
       DB_PASSWORD: ""
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+      - name: Node del runner
+        run: node --version
+
+      - name: Base de datos de prueba (MariaDB temporal)
+        run: .\.github\scripts\mariadb-windows.ps1 -Port 3307
 
       - name: Dependencias
         run: npm ci --no-audit --no-fund
 
       - name: Revisión de sintaxis
-        run: for f in server.js db.js routes/*.js middleware/*.js services/*.js; do node --check "$f" || exit 1; done
+        run: |
+          foreach ($f in Get-ChildItem server.js, db.js, routes\*.js, middleware\*.js, services\*.js) {
+            node --check $f.FullName
+            if ($LASTEXITCODE -ne 0) { Write-Host "::error file=$($f.Name)::Error de sintaxis"; exit 1 }
+          }
+          Write-Host "Sintaxis correcta"
 
       - name: Pruebas automatizadas
-        run: >
-          node --test --test-concurrency=1 --experimental-test-coverage
-          --test-reporter=spec --test-reporter-destination=stdout
-          --test-reporter=junit --test-reporter-destination=test-results.xml
-          tests/*.test.js
+        shell: cmd
+        run: node --test --test-concurrency=1 --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=test-results.xml "tests/*.test.js"
 
       - name: Resumen de resultados
         if: always()
-        run: python3 .github/scripts/ci_report.py junit test-results.xml "Pruebas de la API (node --test)"
+        run: node .github/scripts/ci_report.js junit test-results.xml "Pruebas de la API (node --test)"
 
       - name: Dependencias con vulnerabilidades críticas (informativo)
         if: always()
         continue-on-error: true
         run: npm audit --omit=dev --audit-level=critical
+
+      - name: Detener la base de prueba
+        if: always()
+        run: |
+          $f = "$env:RUNNER_TEMP\mariadb.pid"
+          if (Test-Path $f) { Stop-Process -Id ([int](Get-Content $f)) -Force -ErrorAction SilentlyContinue }
+          exit 0
 
       - uses: actions/upload-artifact@v4
         if: always()
