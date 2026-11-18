@@ -23,7 +23,7 @@ concurrency:
 
 defaults:
   run:
-    shell: powershell -NoProfile -ExecutionPolicy Bypass -Command "& { . '{0}'; if ($LASTEXITCODE) { exit $LASTEXITCODE } }"
+    shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'; exit $LASTEXITCODE"
 
 jobs:
   pruebas:
