@@ -61,7 +61,9 @@ jobs:
 
       - name: Resumen de resultados
         if: always()
-        run: node .github/scripts/ci_report.js junit test-results.xml "Pruebas de la API (node --test)"
+        env:
+          CI_TITLE: Pruebas de la API (node --test)
+        run: node .github/scripts/ci_report.js junit test-results.xml
 
       - name: Dependencias con vulnerabilidades críticas (informativo)
         if: always()

@@ -1,4 +1,4 @@
-# Prácticas 13 y 14 · MariaDB temporal para las pruebas en un runner self-hosted de Windows.
+﻿# Prácticas 13 y 14 · MariaDB temporal para las pruebas en un runner self-hosted de Windows.
 #
 # En los runners de GitHub (Linux) la base se levanta como "service container"; en Windows
 # eso no existe, así que este script:
@@ -30,6 +30,9 @@ if (Test-Path $data) { Remove-Item -Recurse -Force $data }
 & "$home_\bin\mariadb-install-db.exe" "--datadir=$data" "--port=$Port" --allow-remote-root-access | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "mariadb-install-db terminó con código $LASTEXITCODE" }
 
+# Sin RUNNER_TRACKING_ID el runner no termina el proceso al acabar este paso (lo hacía:
+# MariaDB respondía aquí y ya no existía en el paso siguiente). El workflow lo detiene al final.
+$env:RUNNER_TRACKING_ID = ''
 $db = Start-Process -PassThru -FilePath "$home_\bin\mariadbd.exe" -ArgumentList "--datadir=`"$data`"", "--port=$Port", '--bind-address=127.0.0.1', '--console' `
   -RedirectStandardError (Join-Path $tmp 'mariadb.err') -RedirectStandardOutput (Join-Path $tmp 'mariadb.out') -WindowStyle Hidden
 $db.Id | Out-File -Encoding ascii (Join-Path $tmp 'mariadb.pid')

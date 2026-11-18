@@ -67,7 +67,7 @@ function fromJunit(file) {
   return { results, total: d || null };
 }
 
-const [kind, file, title = 'Pruebas'] = process.argv.slice(2);
+const [kind, file, title = process.env.CI_TITLE || 'Pruebas'] = process.argv.slice(2);
 if (!fs.existsSync(file)) {
   console.log(`::error::No se generó ${file}: las pruebas no llegaron a ejecutarse (revisa el paso anterior).`);
   process.exit(0);
