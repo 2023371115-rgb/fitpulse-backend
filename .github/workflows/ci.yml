@@ -41,9 +41,6 @@ jobs:
       - name: Node del runner
         run: node --version
 
-      - name: Base de datos de prueba (MariaDB temporal)
-        run: .\.github\scripts\mariadb-windows.ps1 -Port 3307
-
       - name: Dependencias
         run: npm ci --no-audit --no-fund
 
@@ -55,9 +52,17 @@ jobs:
           }
           Write-Host "Sintaxis correcta"
 
-      - name: Pruebas automatizadas
-        shell: cmd
-        run: node --test --test-concurrency=1 --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=test-results.xml "tests/*.test.js"
+      # MariaDB vive en el mismo paso que las pruebas: en Windows el runner termina al final de
+      # cada paso los procesos que ese paso dejó vivos.
+      - name: MariaDB temporal + pruebas automatizadas
+        run: |
+          .\.github\scripts\mariadb-windows.ps1 -Port 3307
+          if (-not $?) { exit 1 }
+          cmd /c "node --test --test-concurrency=1 --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=test-results.xml tests/*.test.js"
+          $code = $LASTEXITCODE
+          $pidFile = "$env:RUNNER_TEMP\mariadb.pid"
+          if (Test-Path $pidFile) { Stop-Process -Id ([int](Get-Content $pidFile)) -Force -ErrorAction SilentlyContinue }
+          exit $code
 
       - name: Resumen de resultados
         if: always()
@@ -69,13 +74,6 @@ jobs:
         if: always()
         continue-on-error: true
         run: npm audit --omit=dev --audit-level=critical
-
-      - name: Detener la base de prueba
-        if: always()
-        run: |
-          $f = "$env:RUNNER_TEMP\mariadb.pid"
-          if (Test-Path $f) { Stop-Process -Id ([int](Get-Content $f)) -Force -ErrorAction SilentlyContinue }
-          exit 0
 
       - uses: actions/upload-artifact@v4
         if: always()
